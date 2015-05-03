@@ -33,6 +33,12 @@ func init() {
 	info := api.MethodByName("SetFavorite").Info()
 	info.Name = "setFavorite"
 
+	info = api.MethodByName("List").Info()
+	info.Name = "getPosts"
+
+	info = api.MethodByName("Add").Info()
+	info.Name = "addPost"
+
 	endpoints.HandleHTTP()
 }
 
