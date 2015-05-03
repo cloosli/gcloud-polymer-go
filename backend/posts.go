@@ -2,7 +2,9 @@ package posts
 
 import (
 	"fmt"
+	"log"
 
+	"appengine"
 	"appengine/datastore"
 
 	"github.com/GoogleCloudPlatform/go-endpoints/endpoints"
@@ -23,7 +25,14 @@ type Posts struct {
 }
 
 func init() {
-	endpoints.RegisterService(PostAPI{}, "posts", "v1", "posts API", true)
+	api, err := endpoints.RegisterService(PostAPI{}, "posts", "v1", "posts API", true)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	info := api.MethodByName("SetFavorite").Info()
+	info.Name = "setFavorite"
+
 	endpoints.HandleHTTP()
 }
 
@@ -61,4 +70,26 @@ func (PostAPI) Add(c endpoints.Context, r *AddRequest) (*Post, error) {
 	}
 	p.UID = k
 	return &p, nil
+}
+
+type UpdateRequest struct {
+	UID      *datastore.Key `json:"uid"`
+	Favorite bool           `json:"favorite"`
+}
+
+func (PostAPI) SetFavorite(c endpoints.Context, r *UpdateRequest) error {
+	return datastore.RunInTransaction(c, func(c appengine.Context) error {
+		var post Post
+		err := datastore.Get(c, r.UID, &post)
+		if err != nil {
+			return fmt.Errorf("get post: %v", err)
+		}
+
+		post.Favorite = r.Favorite
+		_, err = datastore.Put(c, r.UID, &post)
+		if err != nil {
+			return fmt.Errorf("update post: %v", err)
+		}
+		return nil
+	}, nil)
 }
