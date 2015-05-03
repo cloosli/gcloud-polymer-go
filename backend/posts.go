@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+
+	"appengine"
+	"appengine/datastore"
 )
 
 type Post struct {
@@ -36,9 +39,19 @@ func init() {
 }
 
 func listPosts(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+
+	posts := []Post{}
+	_, err := datastore.NewQuery("Post").GetAll(c, &posts)
+	if err != nil {
+		c.Errorf("fetching posts: %v", err)
+		return
+	}
+
 	enc := json.NewEncoder(w)
-	err := enc.Encode(posts)
+	err = enc.Encode(posts)
 	if err != nil {
 		log.Printf("encoding: %v", err)
+		c.Errorf("encoding: %v", err)
 	}
 }
