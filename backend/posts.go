@@ -1,57 +1,64 @@
 package posts
 
 import (
-	"encoding/json"
-	"log"
-	"net/http"
+	"fmt"
 
-	"appengine"
 	"appengine/datastore"
+
+	"github.com/GoogleCloudPlatform/go-endpoints/endpoints"
 )
 
+type PostAPI struct{}
+
 type Post struct {
-	UID      string
-	Text     string
-	Username string
-	Avatar   string
-	Favorite bool
+	UID      *datastore.Key `json:"uid" datastore:"-"`
+	Text     string         `json:"text"`
+	Username string         `json:"username"`
+	Avatar   string         `json:"avatar"`
+	Favorite bool           `json:"favorite"`
 }
 
-var posts = []Post{
-	{
-		"1",
-		"Go is awesome",
-		"Gopher",
-		"http://www.unixstickers.com/image/cache/data/stickers/golang/golang.sh-600x600.png",
-		true,
-	},
-	{
-		"2",
-		"And polymer is not bad",
-		"Gopher",
-		"http://magdkudama.com/assets/201407/gopher-flying.jpg",
-		true,
-	},
+type Posts struct {
+	Posts []Post `json:"posts"`
 }
 
 func init() {
-	http.HandleFunc("/posts", listPosts)
+	endpoints.RegisterService(PostAPI{}, "posts", "v1", "posts API", true)
+	endpoints.HandleHTTP()
 }
 
-func listPosts(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
-
+func (PostAPI) List(c endpoints.Context) (*Posts, error) {
 	posts := []Post{}
-	_, err := datastore.NewQuery("Post").GetAll(c, &posts)
+	keys, err := datastore.NewQuery("Post").GetAll(c, &posts)
 	if err != nil {
-		c.Errorf("fetching posts: %v", err)
-		return
+		return nil, err
 	}
 
-	enc := json.NewEncoder(w)
-	err = enc.Encode(posts)
-	if err != nil {
-		log.Printf("encoding: %v", err)
-		c.Errorf("encoding: %v", err)
+	for i, k := range keys {
+		posts[i].UID = k
 	}
+
+	return &Posts{posts}, nil
+}
+
+type AddRequest struct {
+	Text     string
+	Username string
+	Avatar   string
+}
+
+func (PostAPI) Add(c endpoints.Context, r *AddRequest) (*Post, error) {
+	p := Post{
+		Text:     r.Text,
+		Username: r.Username,
+		Avatar:   r.Avatar,
+	}
+
+	k := datastore.NewIncompleteKey(c, "Post", nil)
+	k, err := datastore.Put(c, k, &p)
+	if err != nil {
+		return nil, fmt.Errorf("put post: %v", err)
+	}
+	p.UID = k
+	return &p, nil
 }
