@@ -2,7 +2,7 @@ package posts
 
 import (
 	"encoding/json"
-
+	"log"
 	"net/http"
 )
 
@@ -37,5 +37,8 @@ func init() {
 
 func listPosts(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
-	enc.Encode(posts)
+	err := enc.Encode(posts)
+	if err != nil {
+		log.Printf("encoding: %v", err)
+	}
 }
